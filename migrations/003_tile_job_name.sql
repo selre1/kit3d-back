@@ -1,2 +1,0 @@
-ALTER TABLE tile_job
-ADD COLUMN IF NOT EXISTS tile_name TEXT;
