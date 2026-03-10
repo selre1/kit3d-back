@@ -12,6 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+ENV BACK_WORKERS=2
+
 EXPOSE 8080
 
-CMD ["sh", "-c", "mkdir -p /data/assets && uvicorn app.main:app --host 0.0.0.0 --port 8080"]
+CMD ["sh", "-c", "mkdir -p /data/assets && uvicorn app.main:app --host 0.0.0.0 --port 8080 --workers ${BACK_WORKERS}"]
