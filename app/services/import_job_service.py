@@ -117,7 +117,7 @@ def create_jobs_for_uploads(project_id: UUID, files: list[UploadFile]) -> dict:
                     "projectId": str(project_id),
                     "jobId": str(job_id),
                 }],
-                queue=os.getenv("CELERY_QUEUE", "import_jobs"),
+                queue=os.getenv("CELERY_IMPORT_QUEUE", "import_jobs"),
             )
 
             results.append({

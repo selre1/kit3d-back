@@ -11,5 +11,5 @@ celery_app = Celery(
 )
 
 celery_app.conf.update(
-    task_default_queue=os.getenv("CELERY_QUEUE", "import_jobs"),
+    task_default_queue=os.getenv("DEFAULT_QUEUE", "import_jobs"),
 )
