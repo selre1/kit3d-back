@@ -139,7 +139,7 @@ def list_tilesets_by_tile_job_ids(tile_job_ids: list[UUID | str]) -> dict[str, l
     if not tile_job_ids:
         return {}
 
-    keys = list({str(tile_job_id) for tile_job_id in tile_job_ids})
+    keys = [str(tile_job_id) for tile_job_id in tile_job_ids]
 
     conn = get_db_connection()
     try:
@@ -155,7 +155,7 @@ def list_tilesets_by_tile_job_ids(tile_job_ids: list[UUID | str]) -> dict[str, l
                         error,
                         updated_at
                     FROM tileset
-                    WHERE tile_job_id = ANY(%s)
+                    WHERE tile_job_id = ANY(%s::uuid[])
                     ORDER BY tile_job_id, ifc_class
                     """,
                     (keys,),
