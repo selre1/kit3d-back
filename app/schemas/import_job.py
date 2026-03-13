@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, Field, field_serializer
 
 
 class ImportJobBase(BaseModel):
@@ -32,9 +32,16 @@ class ImportJobBase(BaseModel):
         return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
+class ImportSkippedItem(BaseModel):
+    file_name: str
+    reason: str
+
+
 class ImportJobsResponse(BaseModel):
     project_id: UUID
-    items: list[ImportJobBase]
+    uploaded: list[ImportJobBase] = Field(default_factory=list)
+    skipped: list[ImportSkippedItem] = Field(default_factory=list)
+    items: list[ImportJobBase] = Field(default_factory=list)
 
 
 class ImportJobStatusResponse(BaseModel):

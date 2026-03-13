@@ -1,4 +1,4 @@
-﻿import os
+import os
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -13,6 +13,7 @@ from app.repositories.import_job_repository import (
     get_upload_job_by_id,
     list_upload_jobs_by_project,
     reset_job_for_retry,
+    upload_file_name_exists,
 )
 from app.repositories.project_repository import project_exists
 
@@ -34,6 +35,10 @@ class JobFileMissingError(Exception):
 
 
 class InvalidFileTypeError(Exception):
+    pass
+
+
+class DuplicateFileNameError(Exception):
     pass
 
 
@@ -68,20 +73,22 @@ def save_upload_file(project_id: UUID, upload: UploadFile) -> tuple[str, str, in
     project_dir.mkdir(parents=True, exist_ok=True)
 
     filename = Path(upload.filename or "upload.ifc").name
-    dest_name = f"origin_{filename}"
-    dest_path = project_dir / dest_name
+    dest_path = project_dir / filename
 
-    relative_path = (project_rel_dir / dest_name).as_posix()
+    relative_path = (project_rel_dir / filename).as_posix()
     file_url = f"/assets/{relative_path}"
 
     size = 0
-    with open(dest_path, "wb") as out_file:
-        while True:
-            chunk = upload.file.read(1024 * 1024)
-            if not chunk:
-                break
-            out_file.write(chunk)
-            size += len(chunk)
+    try:
+        with open(dest_path, "xb") as out_file:
+            while True:
+                chunk = upload.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                out_file.write(chunk)
+                size += len(chunk)
+    except FileExistsError as exc:
+        raise DuplicateFileNameError() from exc
 
     return str(dest_path), str(file_url), size
 
@@ -96,25 +103,43 @@ def close_uploads(files: list[UploadFile]) -> None:
 
 def create_jobs_for_uploads(project_id: UUID, files: list[UploadFile]) -> dict:
     if not files:
-        return {"project_id": project_id, "items": []}
+        return {"project_id": project_id, "uploaded": [], "skipped": [], "items": []}
 
     for upload in files:
-        filename = upload.filename or ""
+        filename = Path(upload.filename or "").name
         ext = Path(filename).suffix.lower()
-        if ext != ".ifc":
+        if not filename or ext != ".ifc":
             close_uploads(files)
             raise InvalidFileTypeError()
 
-    results = []
+    uploaded: list[dict] = []
+    skipped: list[dict] = []
+    seen_names: set[str] = set()
+
     for upload in files:
+        filename = Path(upload.filename or "").name
+        key = filename.lower()
+
+        if key in seen_names or upload_file_name_exists(project_id, filename):
+            skipped.append({
+                "file_name": filename,
+                "reason": "duplicate_file_name",
+            })
+            try:
+                upload.file.close()
+            except Exception:
+                pass
+            continue
+
+        seen_names.add(key)
+
         try:
-            filename = upload.filename or ""
             file_path, file_url, file_size = save_upload_file(project_id, upload)
             job_id = uuid4()
             db_result = create_upload_job(
                 project_id=project_id,
                 job_id=job_id,
-                file_name=Path(filename).name,
+                file_name=filename,
                 file_format="ifc",
                 file_path=file_path,
                 file_url=file_url,
@@ -132,11 +157,11 @@ def create_jobs_for_uploads(project_id: UUID, files: list[UploadFile]) -> dict:
                 task_id=str(job_id),
             )
 
-            results.append(
+            uploaded.append(
                 {
                     "file_id": db_result["file_id"],
                     "job_id": job_id,
-                    "file_name": Path(filename).name,
+                    "file_name": filename,
                     "file_path": file_path,
                     "project_id": str(project_id),
                     "file_format": "ifc",
@@ -152,13 +177,25 @@ def create_jobs_for_uploads(project_id: UUID, files: list[UploadFile]) -> dict:
             )
         except RepoProjectNotFoundError as exc:
             raise ProjectNotFoundError() from exc
+        except DuplicateFileNameError:
+            skipped.append(
+                {
+                    "file_name": filename,
+                    "reason": "duplicate_file_name",
+                }
+            )
         finally:
             try:
                 upload.file.close()
             except Exception:
                 pass
 
-    return {"project_id": project_id, "items": results}
+    return {
+        "project_id": project_id,
+        "uploaded": uploaded,
+        "skipped": skipped,
+        "items": uploaded,
+    }
 
 
 def get_upload_file_record(project_id: UUID, file_id: int) -> dict:

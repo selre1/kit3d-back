@@ -162,6 +162,26 @@ def get_upload_file_by_project(
         conn.close()
 
 
+
+def upload_file_name_exists(project_id: UUID, file_name: str) -> bool:
+    conn = get_db_connection()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT 1
+                    FROM upload_file
+                    WHERE project_id = %s
+                      AND LOWER(file_name) = LOWER(%s)
+                    LIMIT 1
+                    """,
+                    (str(project_id), file_name),
+                )
+                return cur.fetchone() is not None
+    finally:
+        conn.close()
+
 def create_upload_job(
     project_id: UUID,
     job_id: UUID,

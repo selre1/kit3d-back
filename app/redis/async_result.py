@@ -17,14 +17,17 @@ def get_status_from_redis(task_id: UUID | str | None) -> RedisTaskResolution:
     if not task_id:
         return RedisTaskResolution(status=JobStatus.PENDING, has_runtime=False)
 
-    async_result = celery_app.AsyncResult(str(task_id))
-    state = str(async_result.state or "PENDING").upper()
+    try:
+        async_result = celery_app.AsyncResult(str(task_id))
+        state = str(async_result.state or "PENDING").upper()
 
-    payload: dict[str, Any] = {}
-    if state == "SUCCESS" and isinstance(async_result.result, dict):
-        payload = async_result.result
-    elif isinstance(async_result.info, dict):
-        payload = async_result.info
+        payload: dict[str, Any] = {}
+        if state == "SUCCESS" and isinstance(async_result.result, dict):
+            payload = async_result.result
+        elif isinstance(async_result.info, dict):
+            payload = async_result.info
+    except Exception:
+        return RedisTaskResolution(status=JobStatus.PENDING, has_runtime=False)
 
     if state in ("STARTED", "PROGRESS"):
         return RedisTaskResolution(status=JobStatus.RUNNING, has_runtime=True, payload=payload)
@@ -37,4 +40,3 @@ def get_status_from_redis(task_id: UUID | str | None) -> RedisTaskResolution:
         return RedisTaskResolution(status=payload_status, has_runtime=True, payload=payload)
 
     return RedisTaskResolution(status=JobStatus.PENDING, has_runtime=False, payload=payload)
-
