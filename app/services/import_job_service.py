@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 from fastapi import UploadFile
 
 from app.celery_client import celery_app
-from app.redis import JobStatus, normalize_job_status, get_status_from_redis
+from app.redis import JobStatus, normalize_job_status
 from app.repositories.import_job_repository import (
     ProjectNotFoundError as RepoProjectNotFoundError,
     create_upload_job,
@@ -59,10 +59,8 @@ def get_import_status(record: dict) -> dict:
         return record
 
     updated = dict(record)
-    resolved = get_status_from_redis(updated.get("job_id"))
     db_status = normalize_job_status(updated.get("status"))
-    updated_status = resolved.status if resolved.has_runtime else db_status
-    updated["status"] = updated_status.value
+    updated["status"] = db_status.value
     return updated
 
 
@@ -154,7 +152,6 @@ def create_jobs_for_uploads(project_id: UUID, files: list[UploadFile]) -> dict:
                     "jobId": str(job_id),
                 }],
                 queue=os.getenv("CELERY_IMPORT_QUEUE", "import_jobs"),
-                task_id=str(job_id),
             )
 
             uploaded.append(
@@ -284,7 +281,6 @@ def retry_import_job(job_id: UUID) -> dict:
             "jobId": str(job_id),
         }],
         queue=os.getenv("CELERY_IMPORT_QUEUE", "import_jobs"),
-        task_id=str(job_id),
     )
 
     refreshed = get_upload_job_by_id(job_id)
