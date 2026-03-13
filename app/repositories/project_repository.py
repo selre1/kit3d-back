@@ -1,4 +1,4 @@
-from uuid import UUID
+﻿from uuid import UUID
 
 from psycopg2 import errors
 
@@ -73,11 +73,9 @@ def fetch_projects(limit: int = 50, offset: int = 0) -> list[dict]:
                         COALESCE(u.completed_count, 0) AS models_count
                     FROM project p
                     LEFT JOIN (
-                        SELECT f.project_id, COUNT(*) AS completed_count
-                        FROM upload_file f
-                        JOIN import_job j ON j.file_id = f.file_id
-                        WHERE j.finished_at IS NOT NULL
-                        GROUP BY f.project_id
+                        SELECT project_id, COUNT(DISTINCT job_id) AS completed_count
+                        FROM ifc_object
+                        GROUP BY project_id
                     ) u ON u.project_id = p.project_id
                     ORDER BY p.created_at DESC
                     LIMIT %s OFFSET %s

@@ -43,25 +43,27 @@ def list_upload_jobs_by_project(
                     """,
                     (str(project_id), limit, offset),
                 )
-                return [
-                    {
-                        "file_id": row[0],
-                        "project_id": row[1],
-                        "file_name": row[2],
-                        "file_format": row[3],
-                        "file_path": row[4],
-                        "file_url": row[5],
-                        "file_size": row[6],
-                        "uploaded_at": row[7],
-                        "job_id": row[8],
-                        "job_type": row[9],
-                        "status": row[10],
-                        "started_at": row[11],
-                        "finished_at": row[12],
-                        "created_at": row[13],
-                    }
-                    for row in cur.fetchall()
-                ]
+                rows = cur.fetchall()
+
+            return [
+                {
+                    "file_id": row[0],
+                    "project_id": row[1],
+                    "file_name": row[2],
+                    "file_format": row[3],
+                    "file_path": row[4],
+                    "file_url": row[5],
+                    "file_size": row[6],
+                    "uploaded_at": row[7],
+                    "job_id": row[8],
+                    "job_type": row[9],
+                    "status": row[10],
+                    "started_at": row[11],
+                    "finished_at": row[12],
+                    "created_at": row[13],
+                }
+                for row in rows
+            ]
     finally:
         conn.close()
 
@@ -97,6 +99,7 @@ def get_upload_job_by_id(job_id: UUID) -> dict | None:
                 row = cur.fetchone()
                 if not row:
                     return None
+
                 return {
                     "file_id": row[0],
                     "project_id": row[1],
@@ -144,6 +147,7 @@ def get_upload_file_by_project(
                 row = cur.fetchone()
                 if not row:
                     return None
+
                 return {
                     "file_id": row[0],
                     "project_id": row[1],
@@ -173,7 +177,7 @@ def create_upload_job(
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO upload_file (project_id, file_name, file_format, file_path,file_url,file_size)
+                    INSERT INTO upload_file (project_id, file_name, file_format, file_path, file_url, file_size)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     RETURNING file_id, uploaded_at
                     """,
@@ -182,6 +186,7 @@ def create_upload_job(
                 file_row = cur.fetchone()
                 file_id = file_row[0]
                 uploaded_at = file_row[1]
+
                 cur.execute(
                     """
                     INSERT INTO import_job (job_id, project_id, file_id)
@@ -191,6 +196,7 @@ def create_upload_job(
                     (str(job_id), str(project_id), file_id),
                 )
                 job_row = cur.fetchone()
+
                 return {
                     "file_id": file_id,
                     "uploaded_at": uploaded_at,
@@ -206,7 +212,6 @@ def create_upload_job(
     finally:
         conn.close()
 
-
 def reset_job_for_retry(job_id: UUID) -> bool:
     conn = get_db_connection()
     try:
@@ -215,30 +220,11 @@ def reset_job_for_retry(job_id: UUID) -> bool:
                 cur.execute(
                     """
                     UPDATE import_job
-                    SET status='PENDING', started_at=NULL, finished_at=NULL
-                    WHERE job_id=%s AND status='FAILED'
+                    SET status = 'PENDING', started_at = NULL, finished_at = NULL
+                    WHERE job_id = %s
                     """,
                     (str(job_id),),
                 )
                 return cur.rowcount > 0
-    finally:
-        conn.close()
-
-
-def count_upload_job_status_by_project(project_id: UUID) -> dict[str, int]:
-    conn = get_db_connection()
-    try:
-        with conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT COALESCE(status, 'PENDING') AS status, COUNT(*)
-                    FROM import_job
-                    WHERE project_id = %s
-                    GROUP BY COALESCE(status, 'PENDING')
-                    """,
-                    (str(project_id),),
-                )
-                return {row[0]: row[1] for row in cur.fetchall()}
     finally:
         conn.close()

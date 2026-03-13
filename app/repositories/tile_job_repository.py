@@ -1,4 +1,4 @@
-from uuid import UUID
+﻿from uuid import UUID
 
 from psycopg2 import errors
 
@@ -41,37 +41,6 @@ def list_tile_jobs_by_project(
                 )
                 rows = cur.fetchall()
 
-            tile_job_ids = [str(row[0]) for row in rows]
-            tilesets_map = {}
-            if tile_job_ids:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        """
-                        SELECT
-                            tile_job_id,
-                            ifc_class,
-                            tileset_url,
-                            status,
-                            error,
-                            updated_at
-                        FROM tileset
-                        WHERE tile_job_id = ANY(%s::uuid[])
-                        ORDER BY ifc_class
-                        """,
-                        (tile_job_ids,),
-                    )
-                    for row in cur.fetchall():
-                        tile_job_id = row[0]
-                        tilesets_map.setdefault(tile_job_id, []).append(
-                            {
-                                "ifc_class": row[1],
-                                "tileset_url": row[2],
-                                "status": row[3],
-                                "error": row[4],
-                                "updated_at": row[5],
-                            }
-                        )
-
             return [
                 {
                     "tile_job_id": row[0],
@@ -82,7 +51,7 @@ def list_tile_jobs_by_project(
                     "done_classes": row[5],
                     "failed_classes": row[6],
                     "tile_path": row[7],
-                    "tilesets": tilesets_map.get(row[0], []),
+                    "tilesets": [],
                     "started_at": row[8],
                     "finished_at": row[9],
                     "created_at": row[10],
@@ -97,6 +66,7 @@ def create_tile_job(
     project_id: UUID,
     tile_job_id: UUID,
     tile_name: str | None = None,
+    tile_path: str | None = None,
 ) -> dict:
     conn = get_db_connection()
     try:
@@ -104,8 +74,8 @@ def create_tile_job(
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO tile_job (tile_job_id, project_id, tile_name, status)
-                    VALUES (%s, %s, %s, 'PENDING')
+                    INSERT INTO tile_job (tile_job_id, project_id, tile_name, status, tile_path)
+                    VALUES (%s, %s, %s, 'PENDING', %s)
                     RETURNING
                         tile_job_id,
                         project_id,
@@ -119,7 +89,7 @@ def create_tile_job(
                         finished_at,
                         created_at
                     """,
-                    (str(tile_job_id), str(project_id), tile_name),
+                    (str(tile_job_id), str(project_id), tile_name, tile_path),
                 )
                 row = cur.fetchone()
                 return {
@@ -173,33 +143,6 @@ def get_tile_job_by_project(
                 if not row:
                     return None
 
-            tilesets = []
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT
-                        ifc_class,
-                        tileset_url,
-                        status,
-                        error,
-                        updated_at
-                    FROM tileset
-                    WHERE tile_job_id = %s
-                    ORDER BY ifc_class
-                    """,
-                    (str(tile_job_id),),
-                )
-                for tileset_row in cur.fetchall():
-                    tilesets.append(
-                        {
-                            "ifc_class": tileset_row[0],
-                            "tileset_url": tileset_row[1],
-                            "status": tileset_row[2],
-                            "error": tileset_row[3],
-                            "updated_at": tileset_row[4],
-                        }
-                    )
-
             return {
                 "tile_job_id": row[0],
                 "project_id": row[1],
@@ -209,7 +152,7 @@ def get_tile_job_by_project(
                 "done_classes": row[5],
                 "failed_classes": row[6],
                 "tile_path": row[7],
-                "tilesets": tilesets,
+                "tilesets": [],
                 "started_at": row[8],
                 "finished_at": row[9],
                 "created_at": row[10],

@@ -44,5 +44,4 @@ class ImportJobStatusResponse(BaseModel):
     running: int
     done: int
     failed: int
-    other: int
     all_done: bool
