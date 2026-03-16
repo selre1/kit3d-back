@@ -68,6 +68,93 @@ def list_upload_jobs_by_project(
         conn.close()
 
 
+def list_recent_upload_jobs_for_projects(
+    project_ids: list[UUID],
+    per_project_limit: int = 10,
+) -> list[dict]:
+    if not project_ids:
+        return []
+
+    conn = get_db_connection()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    WITH ranked_uploads AS (
+                        SELECT
+                            f.file_id,
+                            f.project_id,
+                            p.name AS project_name,
+                            f.file_name,
+                            f.file_format,
+                            f.file_path,
+                            f.file_url,
+                            f.file_size,
+                            f.uploaded_at,
+                            j.job_id,
+                            j.job_type,
+                            j.status,
+                            j.started_at,
+                            j.finished_at,
+                            j.created_at,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY f.project_id
+                                ORDER BY f.uploaded_at DESC
+                            ) AS row_num
+                        FROM upload_file f
+                        JOIN project p ON p.project_id = f.project_id
+                        LEFT JOIN import_job j ON j.file_id = f.file_id
+                        WHERE f.project_id = ANY(%s::uuid[])
+                    )
+                    SELECT
+                        file_id,
+                        project_id,
+                        project_name,
+                        file_name,
+                        file_format,
+                        file_path,
+                        file_url,
+                        file_size,
+                        uploaded_at,
+                        job_id,
+                        job_type,
+                        status,
+                        started_at,
+                        finished_at,
+                        created_at
+                    FROM ranked_uploads
+                    WHERE row_num <= %s
+                    ORDER BY uploaded_at DESC
+                    """,
+                    ([str(project_id) for project_id in project_ids], per_project_limit),
+                )
+                rows = cur.fetchall()
+
+            return [
+                {
+                    "file_id": row[0],
+                    "project_id": row[1],
+                    "project_name": row[2],
+                    "file_name": row[3],
+                    "file_format": row[4],
+                    "file_path": row[5],
+                    "file_url": row[6],
+                    "file_size": row[7],
+                    "uploaded_at": row[8],
+                    "job_id": row[9],
+                    "job_type": row[10],
+                    "status": row[11],
+                    "started_at": row[12],
+                    "finished_at": row[13],
+                    "created_at": row[14],
+                }
+                for row in rows
+            ]
+    finally:
+        conn.close()
+
+
 def get_upload_job_by_id(job_id: UUID) -> dict | None:
     conn = get_db_connection()
     try:

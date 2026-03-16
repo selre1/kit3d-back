@@ -70,11 +70,11 @@ def fetch_projects(limit: int = 50, offset: int = 0) -> list[dict]:
                         p.name,
                         p.description,
                         p.created_at,
-                        COALESCE(u.completed_count, 0) AS models_count
+                        COALESCE(u.models_count, 0) AS models_count
                     FROM project p
                     LEFT JOIN (
-                        SELECT project_id, COUNT(DISTINCT job_id) AS completed_count
-                        FROM ifc_object
+                        SELECT project_id, COUNT(*) AS models_count
+                        FROM import_job
                         GROUP BY project_id
                     ) u ON u.project_id = p.project_id
                     ORDER BY p.created_at DESC
