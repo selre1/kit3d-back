@@ -6,9 +6,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 celery_app = Celery(
-    "api_client",
+    "engine_client",
     broker=os.getenv("CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672//"),
     backend=os.getenv("CELERY_RESULT_BACKEND", "redis://localhost:6379/0"),
+)
+
+terrain_celery_app = Celery(
+    "terrain_client",
+    broker=os.getenv("TERRAIN_CELERY_BROKER_URL", "redis://localhost:6379/1"),
+    backend=os.getenv("TERRAIN_CELERY_RESULT_BACKEND", "redis://localhost:6379/2"),
 )
 
 celery_app.conf.update(

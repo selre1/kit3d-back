@@ -1,14 +1,26 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
-from app.schemas.dem import DemUploadResponse
+from app.schemas.dem import DemListItemResponse, DemUploadResponse
 from app.services.dem_service import (
     DemFileSaveError,
     DuplicateDemFileNameError,
     InvalidDemFileTypeError,
+    list_dem_files,
     save_dem_file,
 )
 
 router = APIRouter()
+
+
+@router.get("/list", response_model=list[DemListItemResponse])
+def list_dem_tifs(limit: int = 100, offset: int = 0) -> list[DemListItemResponse]:
+    try:
+        return list_dem_files(limit=limit, offset=offset)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load DEM list",
+        ) from exc
 
 
 @router.post(

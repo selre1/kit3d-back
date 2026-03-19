@@ -65,8 +65,8 @@ def get_import_status(record: dict) -> dict:
 
 
 def save_upload_file(project_id: UUID, upload: UploadFile) -> tuple[str, str, int | None]:
-    upload_root = Path(os.getenv("UPLOAD_DIR", "assets"))
-    project_rel_dir = Path(str(project_id)) / "uploads"
+    upload_root = Path(os.getenv("ASSETS_DIR", "assets"))
+    project_rel_dir = Path("model") / str(project_id) / "ifc"
     project_dir = upload_root / project_rel_dir
     project_dir.mkdir(parents=True, exist_ok=True)
 
@@ -207,7 +207,7 @@ def get_upload_file_record(project_id: UUID, file_id: int) -> dict:
     if not file_path:
         raise UploadFileMissingError()
 
-    upload_root = Path(os.getenv("UPLOAD_DIR", "assets")).resolve()
+    upload_root = Path(os.getenv("ASSETS_DIR", "assets")).resolve()
     resolved_path = Path(file_path).resolve()
     if resolved_path != upload_root and upload_root not in resolved_path.parents:
         raise UploadFileAccessError()

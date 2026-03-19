@@ -64,8 +64,8 @@ def get_tile_status(record: dict, tilesets: list[dict] | None = None) -> dict:
 
 def run_tile_job(project_id: UUID, payload: TileJobCreate) -> dict:
     tile_job_id = uuid4()
-    assets_root = Path(os.getenv("UPLOAD_DIR", "assets"))
-    tile_path = str(assets_root / str(project_id) / "tiles" / str(tile_job_id))
+    assets_root = Path(os.getenv("ASSETS_DIR", "assets"))
+    tile_path = str(assets_root / "model" / str(project_id) / "tiles" / str(tile_job_id))
 
     result = create_tile_job(
         project_id=project_id,
