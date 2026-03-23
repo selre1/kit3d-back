@@ -40,12 +40,12 @@ def import_files(
     except InvalidFileTypeError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only .ifc files are supported",
+            detail="IFC 파일만 업로드할 수 있습니다.",
         ) from exc
     except ProjectNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
+            detail="프로젝트를 찾을 수 없습니다.",
         ) from exc
 
 
@@ -60,7 +60,7 @@ def import_list(
     except ProjectNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
+            detail="프로젝트를 찾을 수 없습니다.",
         ) from exc
 
 
@@ -74,22 +74,22 @@ def download_ifc(
     except ProjectNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
+            detail="프로젝트를 찾을 수 없습니다.",
         ) from exc
     except UploadFileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found",
+            detail="파일을 찾을 수 없습니다.",
         ) from exc
     except UploadFileMissingError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="File not found",
+            detail="파일을 찾을 수 없습니다.",
         ) from exc
     except UploadFileAccessError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="File access denied",
+            detail="파일 접근이 거부되었습니다.",
         ) from exc
 
     filename = record.get("file_name") or "download.ifc"
@@ -107,7 +107,7 @@ def get_import_job_status(project_id: UUID) -> ImportJobStatusResponse:
     except ProjectNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
+            detail="프로젝트를 찾을 수 없습니다.",
         ) from exc
 
 
@@ -118,15 +118,15 @@ def retry_job(job_id: UUID) -> ImportJobBase:
     except JobNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Job not found",
+            detail="작업을 찾을 수 없습니다.",
         ) from exc
     except JobFileMissingError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="File not found",
+            detail="파일을 찾을 수 없습니다.",
         ) from exc
     except JobNotRetryableError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Job is not retryable",
+            detail="작업을 다시 시도할 수 없습니다.",
         ) from exc

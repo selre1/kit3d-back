@@ -36,7 +36,7 @@ def start_tiling(
     except TileProjectNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
+            detail="프로젝트를 찾을 수 없습니다.",
         ) from exc
 
 
@@ -54,7 +54,7 @@ def list_tiles(
     except TileProjectNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
+            detail="프로젝트를 찾을 수 없습니다.",
         ) from exc
 
 
@@ -69,22 +69,22 @@ def download_tiles(
     except TileProjectNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
+            detail="프로젝트를 찾을 수 없습니다.",
         ) from exc
     except TileJobNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tile job not found",
+            detail="타일 작업을 찾을 수 없습니다.",
         ) from exc
     except TilePathMissingError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tile path not found",
+            detail="타일 경로를 찾을 수 없습니다.",
         ) from exc
     except TilePathAccessError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Tile path access denied",
+            detail="타일 경로 접근이 거부되었습니다.",
         ) from exc
 
     tile_path = Path(record["tile_path"])
@@ -142,10 +142,10 @@ def get_tileset_urls(
     except TileProjectNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project not found",
+            detail="프로젝트를 찾을 수 없습니다.",
         ) from exc
     except TileJobNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Tile job not found",
+            detail="타일 작업을 찾을 수 없습니다.",
         ) from exc

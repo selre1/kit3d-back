@@ -20,5 +20,5 @@ def project_create(payload: ProjectCreate) -> ProjectResponse:
     except ProjectAlreadyExistsError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Project already exists",
+            detail="프로젝트가 이미 존재합니다.",
         ) from exc
