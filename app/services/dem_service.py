@@ -4,7 +4,17 @@ from uuid import uuid4
 
 from fastapi import UploadFile
 
-from app.repositories.dem_repository import DuplicateDemPathError, create_dem, list_dems
+from app.celery_client import terrain_celery_app
+from app.repositories.dem_repository import (
+    DuplicateDemPathError,
+    create_dem,
+    create_terrain_job,
+    get_dem_by_id,
+    get_terrain_job_by_dem,
+    list_dems,
+    set_terrain_job_failed,
+    set_terrain_job_task_id,
+)
 
 
 class InvalidDemFileTypeError(Exception):
@@ -16,6 +26,18 @@ class DuplicateDemFileNameError(Exception):
 
 
 class DemFileSaveError(Exception):
+    pass
+
+
+class DemNotFoundError(Exception):
+    pass
+
+
+class TerrainJobAlreadyRunningError(Exception):
+    pass
+
+
+class TerrainTaskDispatchError(Exception):
     pass
 
 
@@ -96,3 +118,43 @@ def save_dem_file(upload: UploadFile) -> dict:
 
 def list_dem_files(limit: int = 100, offset: int = 0) -> list[dict]:
     return list_dems(limit=limit, offset=offset)
+
+
+def start_dem_terrain_job(dem_id: str) -> dict:
+    dem_row = get_dem_by_id(dem_id)
+    if not dem_row:
+        raise DemNotFoundError()
+
+    latest_job = get_terrain_job_by_dem(dem_id)
+    latest_status = (latest_job or {}).get("status")
+    if latest_status in {"PENDING", "RUNNING", "ZIPPING"}:
+        raise TerrainJobAlreadyRunningError()
+
+    job_id = uuid4()
+    input_file = str(Path(os.getenv("ASSETS_DIR")) / dem_row["file_path"])
+
+    job_row = create_terrain_job(job_id=job_id, dem_id=dem_id, status="PENDING")
+
+    payload = {
+        "job_id": str(job_id),
+        "dem_id": dem_id,
+        "file_path": input_file,
+    }
+
+    try:
+        async_result = terrain_celery_app.send_task(
+            "terrain.convert_dem",
+            args=[payload],
+            queue=os.getenv("CELERY_TERRAIN_QUEUE"),
+        )
+        set_terrain_job_task_id(job_id=str(job_id), task_id=async_result.id)
+    except Exception as exc:
+        set_terrain_job_failed(job_id=str(job_id), err=str(exc))
+        raise TerrainTaskDispatchError() from exc
+
+    return {
+        "job_id": job_row["job_id"],
+        "dem_id": job_row["dem_id"],
+        "status": "PENDING",
+        "task_id": async_result.id,
+    }
