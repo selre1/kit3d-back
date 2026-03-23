@@ -146,7 +146,7 @@ def start_dem_terrain_job(dem_id: str) -> dict:
         async_result = terrain_celery_app.send_task(
             "terrain.convert_dem",
             args=[payload],
-            queue=os.getenv("CELERY_TERRAIN_QUEUE"),
+            queue=os.getenv("CELERY_TERRAIN_QUEUE", "terrain_jobs"),
         )
         set_terrain_job_task_id(job_id=str(job_id), task_id=async_result.id)
     except Exception as exc:
