@@ -1,10 +1,10 @@
-import os
+﻿import os
 from pathlib import Path
 from uuid import uuid4
 
 from fastapi import UploadFile
 
-from app.celery_client import terrain_celery_app
+from app.celery import terrain_celery_app
 from app.repositories.dem_repository import (
     DuplicateDemPathError,
     create_dem,

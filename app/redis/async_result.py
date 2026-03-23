@@ -1,8 +1,8 @@
-from dataclasses import dataclass, field
+﻿from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
-from app.celery_client import celery_app
+from app.celery import celery_app
 from app.redis.job_status import JobStatus, normalize_job_status
 
 

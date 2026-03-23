@@ -1,10 +1,10 @@
-import os
+﻿import os
 from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi import UploadFile
 
-from app.celery_client import celery_app
+from app.celery import celery_app
 from app.redis import JobStatus, normalize_job_status
 from app.repositories.import_job_repository import (
     ProjectNotFoundError as RepoProjectNotFoundError,

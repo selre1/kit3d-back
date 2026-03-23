@@ -1,8 +1,8 @@
-import os
+﻿import os
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from app.celery_client import celery_app
+from app.celery import celery_app
 from app.redis import JobStatus, get_status_from_redis, normalize_job_status
 from app.repositories.project_repository import project_exists
 from app.repositories.tile_job_repository import (
