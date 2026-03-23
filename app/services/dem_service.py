@@ -98,6 +98,7 @@ def save_dem_file(upload: UploadFile) -> dict:
             file_name=filename,
             file_path=file_rel_path,
             file_url=f"/assets/{file_rel_path}",
+            file_size=size,
         )
     except DuplicateDemPathError as exc:
         _remove_file_safely(dest_path)
@@ -111,7 +112,7 @@ def save_dem_file(upload: UploadFile) -> dict:
         "file_name": dem_row["file_name"],
         "file_path": dem_row["file_path"],
         "file_url": dem_row["file_url"],
-        "file_size": size,
+        "file_size": dem_row["file_size"],
         "created_at": dem_row["created_at"],
     }
 

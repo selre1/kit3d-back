@@ -9,18 +9,18 @@ class DuplicateDemPathError(Exception):
     pass
 
 
-def create_dem(dem_id: UUID, file_name: str, file_path: str, file_url: str) -> dict:
+def create_dem(dem_id: UUID, file_name: str, file_path: str, file_url: str, file_size: int) -> dict:
     conn = get_db_connection()
     try:
         with conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO dem (dem_id, file_name, file_path, file_url)
-                    VALUES (%s, %s, %s, %s)
-                    RETURNING dem_id::text, file_name, file_path, file_url, created_at
+                    INSERT INTO dem (dem_id, file_name, file_path, file_url, file_size)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING dem_id::text, file_name, file_path, file_url, file_size, created_at
                     """,
-                    (str(dem_id), file_name, file_path, file_url),
+                    (str(dem_id), file_name, file_path, file_url, file_size),
                 )
                 row = cur.fetchone()
                 return {
@@ -28,7 +28,8 @@ def create_dem(dem_id: UUID, file_name: str, file_path: str, file_url: str) -> d
                     "file_name": row[1],
                     "file_path": row[2],
                     "file_url": row[3],
-                    "created_at": row[4],
+                    "file_size": row[4],
+                    "created_at": row[5],
                 }
     except errors.UniqueViolation as exc:
         raise DuplicateDemPathError() from exc
@@ -48,6 +49,7 @@ def list_dems(limit: int = 100, offset: int = 0) -> list[dict]:
                         d.file_name,
                         d.file_path,
                         d.file_url,
+                        d.file_size,
                         d.created_at,
                         lj.job_id::text,
                         lj.status,
@@ -74,11 +76,12 @@ def list_dems(limit: int = 100, offset: int = 0) -> list[dict]:
                         "file_name": row[1],
                         "file_path": row[2],
                         "file_url": row[3],
-                        "created_at": row[4],
-                        "job_id": row[5],
-                        "terrain_status": row[6],
-                        "terrain_download_url": row[7],
-                        "terrain_tileset_url": row[8],
+                        "file_size": row[4],
+                        "created_at": row[5],
+                        "job_id": row[6],
+                        "terrain_status": row[7],
+                        "terrain_download_url": row[8],
+                        "terrain_tileset_url": row[9],
                     }
                     for row in rows
                 ]
@@ -98,6 +101,7 @@ def get_dem_by_id(dem_id: UUID | str) -> dict | None:
                         file_name,
                         file_path,
                         file_url,
+                        file_size,
                         created_at
                     FROM dem
                     WHERE dem_id = %s
@@ -112,7 +116,8 @@ def get_dem_by_id(dem_id: UUID | str) -> dict | None:
                     "file_name": row[1],
                     "file_path": row[2],
                     "file_url": row[3],
-                    "created_at": row[4],
+                    "file_size": row[4],
+                    "created_at": row[5],
                 }
     finally:
         conn.close()

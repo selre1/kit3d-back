@@ -25,6 +25,7 @@ class DemListItemResponse(BaseModel):
     file_name: str
     file_path: str
     file_url: str
+    file_size: int | None = None
     job_id: str | None = None
     terrain_status: str | None = None
     terrain_download_url: str | None = None
