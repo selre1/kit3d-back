@@ -8,4 +8,4 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="localhost", port=8080, reload=True)
+    uvicorn.run("app.main:app", host="localhost", port=8080, reload=True, workers=1)
