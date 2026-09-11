@@ -9,12 +9,14 @@ from app.services.project_service import (
 
 router = APIRouter()
 
-# 이 라우터는 IFC 프로젝트 전용이다. FBX 는 project_fbx.py 에 있다.
-FILE_FORMAT = "ifc"
+# FBX 프로젝트 전용. 동작은 IFC 와 같고 대상 타입만 다르므로 서비스는 공유한다.
+FILE_FORMAT = "fbx"
+
 
 @router.get("/list", response_model=list[ProjectResponse])
 def project_list(limit: int = 50, offset: int = 0) -> list[ProjectResponse]:
     return list_projects(limit=limit, offset=offset, file_format=FILE_FORMAT)
+
 
 @router.post("/create", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def project_create(payload: ProjectCreate) -> ProjectResponse:

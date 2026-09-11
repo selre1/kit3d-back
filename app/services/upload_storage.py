@@ -11,10 +11,6 @@ from uuid import UUID
 from fastapi import UploadFile
 
 
-# 업로드 가능한 3D 모델 포맷. 포맷을 추가하면 여기와 전용 서비스 모듈을 함께 늘린다.
-MODEL_FORMATS = ("ifc", "fbx")
-
-
 class DuplicateFileNameError(Exception):
     pass
 

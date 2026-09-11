@@ -16,6 +16,11 @@ from app.repositories.import_job_repository import (
     upload_file_name_exists,
 )
 from app.repositories.project_repository import project_exists
+from app.services.project_service import (
+    ProjectFormatMismatchError,  # noqa: F401 - 라우터가 이 모듈에서 import 한다
+    ProjectNotFoundError as ProjectMissingError,
+    assert_project_format,
+)
 from app.services.upload_storage import (
     DuplicateFileNameError,
     UploadFileAccessError,  # noqa: F401 - 라우터가 이 모듈에서 import 한다
@@ -73,6 +78,15 @@ def create_jobs_for_uploads(project_id: UUID, files: list[UploadFile]) -> dict:
         if not filename or resolve_file_format(filename) != FILE_FORMAT:
             close_uploads(files)
             raise InvalidFileTypeError()
+
+    try:
+        assert_project_format(project_id, FILE_FORMAT)
+    except ProjectMissingError as exc:
+        close_uploads(files)
+        raise ProjectNotFoundError() from exc
+    except ProjectFormatMismatchError:
+        close_uploads(files)
+        raise
 
     uploaded: list[dict] = []
     skipped: list[dict] = []

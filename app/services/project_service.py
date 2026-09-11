@@ -1,38 +1,48 @@
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from app.repositories.project_repository import (
     ProjectAlreadyExistsError,  # noqa: F401 - 라우터가 이 모듈에서 import 한다
     fetch_projects,
+    get_project_format,
     insert_project,
 )
 from app.schemas.project import ProjectCreate
-from app.services.upload_storage import MODEL_FORMATS
 
 
-def fill_format_counts(project: dict) -> dict:
-    """models_count_by_format 에 지원 포맷 키를 항상 채워 둔다.
+class ProjectFormatMismatchError(Exception):
+    """프로젝트의 모델 타입과 다른 포맷을 다루려 할 때."""
 
-    프론트가 models_count_by_format[modelType] 을 그대로 읽을 수 있게,
-    업로드가 없는 포맷도 0 으로 내려보낸다.
-    """
-    counts = project.get("models_count_by_format") or {}
-    filled = {file_format: 0 for file_format in MODEL_FORMATS}
-    for file_format, count in counts.items():
-        filled[file_format] = int(count)
-
-    project["models_count_by_format"] = filled
-    return project
+    def __init__(self, project_format: str):
+        super().__init__(project_format)
+        self.project_format = project_format
 
 
-def create_project(payload: ProjectCreate) -> dict:
+class ProjectNotFoundError(Exception):
+    pass
+
+
+def create_project(payload: ProjectCreate, file_format: str) -> dict:
     project_id = payload.project_id or uuid4()
-    project = insert_project(
+    return insert_project(
         project_id=project_id,
         name=payload.name,
         description=payload.description,
+        file_format=file_format,
     )
-    return fill_format_counts(project)
 
 
-def list_projects(limit: int = 50, offset: int = 0) -> list[dict]:
-    return [fill_format_counts(project) for project in fetch_projects(limit=limit, offset=offset)]
+def list_projects(limit: int = 50, offset: int = 0, file_format: str | None = None) -> list[dict]:
+    return fetch_projects(limit=limit, offset=offset, file_format=file_format)
+
+
+def assert_project_format(project_id: UUID, file_format: str) -> None:
+    """업로드 전, 프로젝트가 해당 타입인지 확인한다.
+
+    타입 전용 프로젝트이므로 다른 포맷의 파일을 받으면 그 파일은
+    어느 목록에도 나타나지 않는 고아가 된다.
+    """
+    project_format = get_project_format(project_id)
+    if project_format is None:
+        raise ProjectNotFoundError()
+    if project_format != file_format:
+        raise ProjectFormatMismatchError(project_format)

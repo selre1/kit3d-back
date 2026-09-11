@@ -13,6 +13,7 @@ from app.services.import_job_service import (
     JobFileMissingError,
     JobNotFoundError,
     JobNotRetryableError,
+    ProjectFormatMismatchError,
     ProjectNotFoundError,
     UploadFileAccessError,
     UploadFileMissingError,
@@ -41,6 +42,11 @@ def import_files(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="IFC 파일만 업로드할 수 있습니다.",
+        ) from exc
+    except ProjectFormatMismatchError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="IFC 프로젝트가 아닙니다.",
         ) from exc
     except ProjectNotFoundError as exc:
         raise HTTPException(
