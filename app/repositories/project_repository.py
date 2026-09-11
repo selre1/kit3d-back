@@ -70,11 +70,19 @@ def fetch_projects(limit: int = 50, offset: int = 0) -> list[dict]:
                         p.name,
                         p.description,
                         p.created_at,
-                        COALESCE(u.models_count, 0) AS models_count
+                        COALESCE(u.models_count, 0) AS models_count,
+                        COALESCE(u.models_count_by_format, '{}'::jsonb) AS models_count_by_format
                     FROM project p
                     LEFT JOIN (
-                        SELECT project_id, COUNT(*) AS models_count
-                        FROM import_job
+                        SELECT
+                            project_id,
+                            SUM(format_count)::bigint AS models_count,
+                            jsonb_object_agg(file_format, format_count) AS models_count_by_format
+                        FROM (
+                            SELECT project_id, file_format, COUNT(*) AS format_count
+                            FROM upload_file
+                            GROUP BY project_id, file_format
+                        ) per_format
                         GROUP BY project_id
                     ) u ON u.project_id = p.project_id
                     ORDER BY p.created_at DESC
@@ -89,6 +97,7 @@ def fetch_projects(limit: int = 50, offset: int = 0) -> list[dict]:
                         "description": row[2],
                         "created_at": row[3],
                         "models_count": row[4],
+                        "models_count_by_format": row[5],
                     }
                     for row in cur.fetchall()
                 ]

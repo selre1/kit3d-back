@@ -16,6 +16,7 @@ class ProjectResponse(BaseModel):
     description : str | None = None
     created_at: datetime | None = None
     models_count: int = 0
+    models_count_by_format: dict[str, int] = Field(default_factory=dict)
 
     @field_serializer("created_at")
     def serialize_created_at(self, value: datetime | None) -> str | None:
