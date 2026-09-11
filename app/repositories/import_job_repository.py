@@ -13,6 +13,7 @@ def list_upload_jobs_by_project(
     project_id: UUID,
     limit: int = 50,
     offset: int = 0,
+    file_format: str | None = None,
 ) -> list[dict]:
     conn = get_db_connection()
     try:
@@ -38,10 +39,11 @@ def list_upload_jobs_by_project(
                     FROM upload_file f
                     LEFT JOIN import_job j ON j.file_id = f.file_id
                     WHERE f.project_id = %s
+                      AND (%s::text IS NULL OR f.file_format = %s)
                     ORDER BY f.uploaded_at DESC
                     LIMIT %s OFFSET %s
                     """,
-                    (str(project_id), limit, offset),
+                    (str(project_id), file_format, file_format, limit, offset),
                 )
                 rows = cur.fetchall()
 
@@ -266,6 +268,37 @@ def upload_file_name_exists(project_id: UUID, file_name: str) -> bool:
                     (str(project_id), file_name),
                 )
                 return cur.fetchone() is not None
+    finally:
+        conn.close()
+
+def create_upload_file(
+    project_id: UUID,
+    file_name: str,
+    file_format: str,
+    file_path: str,
+    file_url: str,
+    file_size: int | None,
+) -> dict:
+    conn = get_db_connection()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO upload_file (project_id, file_name, file_format, file_path, file_url, file_size)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    RETURNING file_id, uploaded_at
+                    """,
+                    (str(project_id), file_name, file_format, file_path, file_url, file_size),
+                )
+                row = cur.fetchone()
+
+                return {
+                    "file_id": row[0],
+                    "uploaded_at": row[1],
+                }
+    except errors.ForeignKeyViolation as exc:
+        raise ProjectNotFoundError() from exc
     finally:
         conn.close()
 

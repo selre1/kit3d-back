@@ -16,6 +16,18 @@ from app.repositories.import_job_repository import (
     upload_file_name_exists,
 )
 from app.repositories.project_repository import project_exists
+from app.services.upload_storage import (
+    DuplicateFileNameError,
+    UploadFileAccessError,  # noqa: F401 - 라우터가 이 모듈에서 import 한다
+    UploadFileMissingError,  # noqa: F401 - 라우터가 이 모듈에서 import 한다
+    close_uploads,
+    resolve_file_format,
+    resolve_stored_path,
+    save_upload_file,
+)
+
+# 이 모듈은 IFC 전용이다. 다른 포맷은 포맷별 서비스에서 처리한다.
+FILE_FORMAT = "ifc"
 
 
 class ProjectNotFoundError(Exception):
@@ -38,19 +50,7 @@ class InvalidFileTypeError(Exception):
     pass
 
 
-class DuplicateFileNameError(Exception):
-    pass
-
-
 class UploadFileNotFoundError(Exception):
-    pass
-
-
-class UploadFileMissingError(Exception):
-    pass
-
-
-class UploadFileAccessError(Exception):
     pass
 
 
@@ -64,49 +64,13 @@ def get_import_status(record: dict) -> dict:
     return updated
 
 
-def save_upload_file(project_id: UUID, upload: UploadFile) -> tuple[str, str, int | None]:
-    upload_root = Path(os.getenv("ASSETS_DIR", "assets"))
-    project_rel_dir = Path("model") / str(project_id) / "ifc"
-    project_dir = upload_root / project_rel_dir
-    project_dir.mkdir(parents=True, exist_ok=True)
-
-    filename = Path(upload.filename or "upload.ifc").name
-    dest_path = project_dir / filename
-
-    relative_path = (project_rel_dir / filename).as_posix()
-    file_url = f"/assets/{relative_path}"
-
-    size = 0
-    try:
-        with open(dest_path, "xb") as out_file:
-            while True:
-                chunk = upload.file.read(1024 * 1024)
-                if not chunk:
-                    break
-                out_file.write(chunk)
-                size += len(chunk)
-    except FileExistsError as exc:
-        raise DuplicateFileNameError() from exc
-
-    return str(dest_path), str(file_url), size
-
-
-def close_uploads(files: list[UploadFile]) -> None:
-    for upload in files:
-        try:
-            upload.file.close()
-        except Exception:
-            pass
-
-
 def create_jobs_for_uploads(project_id: UUID, files: list[UploadFile]) -> dict:
     if not files:
         return {"project_id": project_id, "uploaded": [], "skipped": [], "items": []}
 
     for upload in files:
         filename = Path(upload.filename or "").name
-        ext = Path(filename).suffix.lower()
-        if not filename or ext != ".ifc":
+        if not filename or resolve_file_format(filename) != FILE_FORMAT:
             close_uploads(files)
             raise InvalidFileTypeError()
 
@@ -132,13 +96,13 @@ def create_jobs_for_uploads(project_id: UUID, files: list[UploadFile]) -> dict:
         seen_names.add(key)
 
         try:
-            file_path, file_url, file_size = save_upload_file(project_id, upload)
+            file_path, file_url, file_size = save_upload_file(project_id, upload, FILE_FORMAT)
             job_id = uuid4()
             db_result = create_upload_job(
                 project_id=project_id,
                 job_id=job_id,
                 file_name=filename,
-                file_format="ifc",
+                file_format=FILE_FORMAT,
                 file_path=file_path,
                 file_url=file_url,
                 file_size=file_size,
@@ -161,7 +125,7 @@ def create_jobs_for_uploads(project_id: UUID, files: list[UploadFile]) -> dict:
                     "file_name": filename,
                     "file_path": file_path,
                     "project_id": str(project_id),
-                    "file_format": "ifc",
+                    "file_format": FILE_FORMAT,
                     "file_url": file_url,
                     "file_size": file_size,
                     "uploaded_at": db_result["uploaded_at"],
@@ -203,19 +167,7 @@ def get_upload_file_record(project_id: UUID, file_id: int) -> dict:
     if not record:
         raise UploadFileNotFoundError()
 
-    file_path = record.get("file_path")
-    if not file_path:
-        raise UploadFileMissingError()
-
-    upload_root = Path(os.getenv("ASSETS_DIR", "assets")).resolve()
-    resolved_path = Path(file_path).resolve()
-    if resolved_path != upload_root and upload_root not in resolved_path.parents:
-        raise UploadFileAccessError()
-
-    if not resolved_path.is_file():
-        raise UploadFileMissingError()
-
-    record["file_path"] = str(resolved_path)
+    record["file_path"] = resolve_stored_path(record.get("file_path"))
     return record
 
 
@@ -223,7 +175,12 @@ def list_upload_jobs(project_id: UUID, limit: int = 50, offset: int = 0) -> list
     if not project_exists(project_id):
         raise ProjectNotFoundError()
 
-    records = list_upload_jobs_by_project(project_id=project_id, limit=limit, offset=offset)
+    records = list_upload_jobs_by_project(
+        project_id=project_id,
+        limit=limit,
+        offset=offset,
+        file_format=FILE_FORMAT,
+    )
     return [get_import_status(record) for record in records]
 
 
