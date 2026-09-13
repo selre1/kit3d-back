@@ -99,8 +99,23 @@ def close_uploads(files: list[UploadFile]) -> None:
             pass
 
 
+def strip_wrapper_dirs(names: list[str]) -> list[str]:
+    """항목 전부가 같은 폴더 아래에 있으면 그 폴더를 벗긴다. 여러 겹이면 여러 번 벗긴다.
+
+    탐색기에서 폴더를 우클릭해 압축하면 폴더 이름이 한 겹 씌워진다.
+    FBX 로더는 1.fbx 옆의 1.fbm/ 을 찾으므로 최상위로 올려야 한다.
+    """
+    stripped = list(names)
+    while all("/" in name for name in stripped):
+        tops = {name.split("/", 1)[0] for name in stripped}
+        if len(tops) != 1:
+            return stripped
+        stripped = [name.split("/", 1)[1] for name in stripped]
+    return stripped
+
+
 def list_archive_names(upload: UploadFile) -> list[str]:
-    """zip 안에 든 파일 경로 목록."""
+    """zip 안에 든 파일 경로 목록. 감싼 폴더는 벗긴 뒤 돌려준다."""
     upload.file.seek(0)
     try:
         archive = zipfile.ZipFile(upload.file)
@@ -108,7 +123,9 @@ def list_archive_names(upload: UploadFile) -> list[str]:
         raise InvalidArchiveError() from exc
 
     with archive:
-        return [info.filename for info in archive.infolist() if not info.is_dir()]
+        return strip_wrapper_dirs(
+            [info.filename for info in archive.infolist() if not info.is_dir()]
+        )
 
 
 def extract_archive(upload: UploadFile, project_id: UUID, file_format: str) -> dict[str, int]:
@@ -133,18 +150,20 @@ def extract_archive(upload: UploadFile, project_id: UUID, file_format: str) -> d
         if sum(info.file_size for info in infos) > 2 * 1024 * 1024 * 1024:
             raise InvalidArchiveError()
 
+        names = strip_wrapper_dirs([info.filename for info in infos])
+
         # 한 건이라도 폴더 밖을 가리키면 아무것도 쓰지 않는다.
         targets = []
-        for info in infos:
-            target = (dest_root / info.filename).resolve()
+        for info, name in zip(infos, names):
+            target = (dest_root / name).resolve()
             if dest_root != target.parent and dest_root not in target.parents:
                 raise InvalidArchiveError()
-            targets.append((info, target))
+            targets.append((info, name, target))
 
-        for info, target in targets:
+        for info, name, target in targets:
             target.parent.mkdir(parents=True, exist_ok=True)
             with archive.open(info) as source, open(target, "wb") as out_file:
                 shutil.copyfileobj(source, out_file, 1024 * 1024)
-            written[info.filename] = target.stat().st_size
+            written[name] = target.stat().st_size
 
     return written
