@@ -1,11 +1,8 @@
 from fastapi import APIRouter, HTTPException, status
 
 from app.schemas.project import ProjectCreate, ProjectResponse
-from app.services.project_service import (
-    ProjectAlreadyExistsError,
-    create_project,
-    list_projects,
-)
+from app.repositories.project_repository import ProjectAlreadyExistsError
+from app.services.project_service import create_project, list_projects
 
 router = APIRouter()
 

@@ -5,13 +5,23 @@ IFC(import_job_service)와 FBX(import_job_fbx_service)가 함께 쓴다.
 """
 
 import os
+import shutil
+import zipfile
 from pathlib import Path
 from uuid import UUID
 
 from fastapi import UploadFile
 
 
+def get_assets_root() -> Path:
+    return Path(os.getenv("ASSETS_DIR", "/data/assets"))
+
+
 class DuplicateFileNameError(Exception):
+    pass
+
+
+class InvalidArchiveError(Exception):
     pass
 
 
@@ -40,9 +50,8 @@ def save_upload_file(
     file_format: str,
 ) -> tuple[str, str, int | None]:
     """원본을 assets/model/{project_id}/{file_format}/ 아래에 저장한다."""
-    upload_root = Path(os.getenv("ASSETS_DIR", "assets"))
     project_rel_dir = Path("model") / str(project_id) / file_format
-    project_dir = upload_root / project_rel_dir
+    project_dir = get_assets_root() / project_rel_dir
     project_dir.mkdir(parents=True, exist_ok=True)
 
     filename = Path(upload.filename or f"upload.{file_format}").name
@@ -71,7 +80,7 @@ def resolve_stored_path(file_path: str | None) -> str:
     if not file_path:
         raise UploadFileMissingError()
 
-    upload_root = Path(os.getenv("ASSETS_DIR", "assets")).resolve()
+    upload_root = get_assets_root().resolve()
     resolved_path = Path(file_path).resolve()
     if resolved_path != upload_root and upload_root not in resolved_path.parents:
         raise UploadFileAccessError()
@@ -88,3 +97,54 @@ def close_uploads(files: list[UploadFile]) -> None:
             upload.file.close()
         except Exception:
             pass
+
+
+def list_archive_names(upload: UploadFile) -> list[str]:
+    """zip 안에 든 파일 경로 목록."""
+    upload.file.seek(0)
+    try:
+        archive = zipfile.ZipFile(upload.file)
+    except zipfile.BadZipFile as exc:
+        raise InvalidArchiveError() from exc
+
+    with archive:
+        return [info.filename for info in archive.infolist() if not info.is_dir()]
+
+
+def extract_archive(upload: UploadFile, project_id: UUID, file_format: str) -> dict[str, int]:
+    """zip 을 assets/model/{project_id}/{file_format}/ 아래에 구조 그대로 푼다.
+
+    {zip 안의 경로: 저장된 크기} 를 돌려준다.
+    """
+    dest_root = (get_assets_root() / "model" / str(project_id) / file_format).resolve()
+    dest_root.mkdir(parents=True, exist_ok=True)
+
+    upload.file.seek(0)
+    try:
+        archive = zipfile.ZipFile(upload.file)
+    except zipfile.BadZipFile as exc:
+        raise InvalidArchiveError() from exc
+
+    written: dict[str, int] = {}
+    with archive:
+        infos = [info for info in archive.infolist() if not info.is_dir()]
+        if len(infos) > 2000:
+            raise InvalidArchiveError()
+        if sum(info.file_size for info in infos) > 2 * 1024 * 1024 * 1024:
+            raise InvalidArchiveError()
+
+        # 한 건이라도 폴더 밖을 가리키면 아무것도 쓰지 않는다.
+        targets = []
+        for info in infos:
+            target = (dest_root / info.filename).resolve()
+            if dest_root != target.parent and dest_root not in target.parents:
+                raise InvalidArchiveError()
+            targets.append((info, target))
+
+        for info, target in targets:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with archive.open(info) as source, open(target, "wb") as out_file:
+                shutil.copyfileobj(source, out_file, 1024 * 1024)
+            written[info.filename] = target.stat().st_size
+
+    return written

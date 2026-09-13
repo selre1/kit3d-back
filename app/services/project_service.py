@@ -1,7 +1,6 @@
 from uuid import UUID, uuid4
 
 from app.repositories.project_repository import (
-    ProjectAlreadyExistsError,  # noqa: F401 - 라우터가 이 모듈에서 import 한다
     fetch_projects,
     get_project_format,
     insert_project,

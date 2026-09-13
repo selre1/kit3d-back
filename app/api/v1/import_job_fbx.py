@@ -6,15 +6,14 @@ from fastapi.responses import FileResponse
 from app.schemas.import_job import ImportJobBase, ImportJobsResponse
 from app.services.import_job_fbx_service import (
     InvalidFileTypeError,
-    ProjectFormatMismatchError,
     ProjectNotFoundError,
-    UploadFileAccessError,
-    UploadFileMissingError,
     UploadFileNotFoundError,
     create_fbx_uploads,
     get_fbx_file_record,
     list_fbx_files,
 )
+from app.services.project_service import ProjectFormatMismatchError
+from app.services.upload_storage import UploadFileAccessError, UploadFileMissingError
 
 router = APIRouter()
 
@@ -33,7 +32,7 @@ def upload_fbx_files(
     except InvalidFileTypeError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="FBX 파일만 업로드할 수 있습니다.",
+            detail="FBX 또는 ZIP 파일만 업로드할 수 있습니다.",
         ) from exc
     except ProjectFormatMismatchError as exc:
         raise HTTPException(

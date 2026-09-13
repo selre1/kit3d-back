@@ -15,6 +15,7 @@ from app.repositories.dem_repository import (
     set_terrain_job_failed,
     set_terrain_job_task_id,
 )
+from app.services.upload_storage import get_assets_root
 
 
 class InvalidDemFileTypeError(Exception):
@@ -58,7 +59,7 @@ def _extract_dem_filename(upload: UploadFile) -> str:
 
 
 def _resolve_dem_paths(filename: str) -> tuple[Path, str]:
-    upload_root = Path(os.getenv("ASSETS_DIR", "/data/assets"))
+    upload_root = get_assets_root()
     file_rel_path = (Path("dem") / "tif" / filename).as_posix()
     dest_path = upload_root / file_rel_path
     dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -132,7 +133,7 @@ def start_dem_terrain_job(dem_id: str) -> dict:
         raise TerrainJobAlreadyRunningError()
 
     job_id = uuid4()
-    input_file = str(Path(os.getenv("ASSETS_DIR")) / dem_row["file_path"])
+    input_file = str(get_assets_root() / dem_row["file_path"])
 
     job_row = create_terrain_job(job_id=job_id, dem_id=dem_id, status="PENDING")
 

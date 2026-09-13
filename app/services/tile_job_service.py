@@ -14,6 +14,7 @@ from app.repositories.tile_job_repository import (
     list_tilesets_by_tile_job_ids,
 )
 from app.schemas.tile_job import TileJobCreate
+from app.services.upload_storage import get_assets_root
 
 
 class TileJobNotFoundError(Exception):
@@ -64,7 +65,7 @@ def get_tile_status(record: dict, tilesets: list[dict] | None = None) -> dict:
 
 def run_tile_job(project_id: UUID, payload: TileJobCreate) -> dict:
     tile_job_id = uuid4()
-    assets_root = Path(os.getenv("ASSETS_DIR", "assets"))
+    assets_root = get_assets_root()
     tile_path = str(assets_root / "model" / str(project_id) / "tiles" / str(tile_job_id))
 
     result = create_tile_job(
