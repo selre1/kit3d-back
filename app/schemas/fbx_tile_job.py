@@ -6,8 +6,7 @@ from pydantic import BaseModel, Field, field_serializer
 
 class FbxTileJobCreate(BaseModel):
     tile_name: str | None = None
-    # 엔진에 그대로 전달되는 변환 옵션. 나머지 mago 옵션은 엔진에서 고정한다.
-    crs: str = "5187"
+    # 좌표계는 project.crs 를 쓴다. 요청마다 바꾸면 같은 모델이 서로 다른 위치에 생성된다.
     rotate_x_axis: float = 90
     # 반드시 불리언으로 직렬화해야 한다. 문자열 "false" 를 보내면 워커에서 참으로 평가된다.
     split_by_node: bool = True

@@ -20,13 +20,23 @@ class ProjectNotFoundError(Exception):
     pass
 
 
+class UnsupportedCrsError(Exception):
+    """지원하지 않는 좌표계."""
+
+
 def create_project(payload: ProjectCreate, file_format: str) -> dict:
+    # Korea 2000 평면직각좌표계 네 원점만 받는다.
+    # 4326 은 도(degree) 단위라 미터 좌표를 그대로 라벨링하면 엉뚱한 위치가 된다.
+    if payload.crs not in (5185, 5186, 5187, 5188):
+        raise UnsupportedCrsError()
+
     project_id = payload.project_id or uuid4()
     return insert_project(
         project_id=project_id,
         name=payload.name,
         description=payload.description,
         file_format=file_format,
+        crs=payload.crs,
     )
 
 

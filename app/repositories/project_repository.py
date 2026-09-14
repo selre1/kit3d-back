@@ -39,10 +39,27 @@ def get_project_format(project_id: UUID) -> str | None:
         conn.close()
 
 
+def get_project_crs(project_id: UUID) -> int | None:
+    """프로젝트의 좌표계. 프로젝트가 없으면 None."""
+    conn = get_db_connection()
+    try:
+        with conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT crs FROM project WHERE project_id = %s",
+                    (str(project_id),),
+                )
+                row = cur.fetchone()
+                return row[0] if row else None
+    finally:
+        conn.close()
+
+
 def insert_project(
     project_id: UUID,
     name: str,
     file_format: str,
+    crs: int,
     description: str | None = None,
 ) -> dict:
     conn = get_db_connection()
@@ -51,11 +68,11 @@ def insert_project(
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    INSERT INTO project (project_id, name, description, format, created_at)
-                    VALUES (%s, %s, %s, %s, NOW())
-                    RETURNING project_id, name, description, format, created_at
+                    INSERT INTO project (project_id, name, description, format, crs, created_at)
+                    VALUES (%s, %s, %s, %s, %s, NOW())
+                    RETURNING project_id, name, description, format, crs, created_at
                     """,
-                    (str(project_id), name, description, file_format),
+                    (str(project_id), name, description, file_format, crs),
                 )
                 row = cur.fetchone()
                 return {
@@ -63,7 +80,8 @@ def insert_project(
                     "name": row[1],
                     "description": row[2],
                     "format": row[3],
-                    "created_at": row[4],
+                    "crs": row[4],
+                    "created_at": row[5],
                     "models_count": 0,
                 }
     except errors.UniqueViolation as exc:
@@ -88,6 +106,7 @@ def fetch_projects(
                         p.name,
                         p.description,
                         p.format,
+                        p.crs,
                         p.created_at,
                         COALESCE(u.models_count, 0) AS models_count
                     FROM project p
@@ -108,8 +127,9 @@ def fetch_projects(
                         "name": row[1],
                         "description": row[2],
                         "format": row[3],
-                        "created_at": row[4],
-                        "models_count": row[5],
+                        "crs": row[4],
+                        "created_at": row[5],
+                        "models_count": row[6],
                     }
                     for row in cur.fetchall()
                 ]

@@ -9,7 +9,7 @@ from app.repositories.fbx_tile_job_repository import (
     list_fbx_tile_jobs_by_project,
     save_fbx_tile_job_result,
 )
-from app.repositories.project_repository import project_exists
+from app.repositories.project_repository import get_project_crs, project_exists
 from app.schemas.fbx_tile_job import FbxTileJobCreate
 from app.services.import_job_fbx_service import (
     FILE_FORMAT,
@@ -50,7 +50,7 @@ def run_fbx_tile_job(project_id: UUID, payload: FbxTileJobCreate) -> dict:
 
     fbx_job_id = uuid4()
     options = {
-        "crs": payload.crs,
+        "crs": get_project_crs(project_id),
         "rotateXAxis": payload.rotate_x_axis,
         # bool 그대로 실어야 한다. 문자열이면 워커에서 항상 참이 된다.
         "splitByNode": bool(payload.split_by_node),

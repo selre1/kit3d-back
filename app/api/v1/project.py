@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.schemas.project import ProjectCreate, ProjectResponse
 from app.repositories.project_repository import ProjectAlreadyExistsError
-from app.services.project_service import create_project, list_projects
+from app.services.project_service import UnsupportedCrsError, create_project, list_projects
 
 router = APIRouter()
 
@@ -17,6 +17,11 @@ def project_list(limit: int = 50, offset: int = 0) -> list[ProjectResponse]:
 def project_create(payload: ProjectCreate) -> ProjectResponse:
     try:
         return create_project(payload, file_format=FILE_FORMAT)
+    except UnsupportedCrsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="좌표계는 5185, 5186, 5187, 5188 중에서 선택해 주세요.",
+        ) from exc
     except ProjectAlreadyExistsError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

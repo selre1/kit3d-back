@@ -8,6 +8,8 @@ class ProjectCreate(BaseModel):
     project_id: UUID | None = None
     name: str = Field(..., min_length=1, max_length=100)
     description: str | None = None
+    # 이 프로젝트에 올라올 모델의 좌표계. 임포트·변환이 모두 이 값을 쓴다.
+    crs: int
 
 
 class ProjectResponse(BaseModel):
@@ -15,6 +17,7 @@ class ProjectResponse(BaseModel):
     name: str
     description : str | None = None
     format: str
+    crs: int
     created_at: datetime | None = None
     models_count: int = 0
 

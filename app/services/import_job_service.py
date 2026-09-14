@@ -15,7 +15,7 @@ from app.repositories.import_job_repository import (
     reset_job_for_retry,
     upload_file_name_exists,
 )
-from app.repositories.project_repository import project_exists
+from app.repositories.project_repository import get_project_crs, project_exists
 from app.services.project_service import (
     ProjectFormatMismatchError,
     ProjectNotFoundError as ProjectMissingError,
@@ -86,6 +86,9 @@ def create_jobs_for_uploads(project_id: UUID, files: list[UploadFile]) -> dict:
         close_uploads(files)
         raise
 
+    # 엔진이 이 값으로 지오메트리에 좌표계를 붙인다. 파일 자체는 검사하지 않는다.
+    crs = get_project_crs(project_id)
+
     uploaded: list[dict] = []
     skipped: list[dict] = []
     seen_names: set[str] = set()
@@ -126,6 +129,7 @@ def create_jobs_for_uploads(project_id: UUID, files: list[UploadFile]) -> dict:
                     "ifcPath": file_path,
                     "projectId": str(project_id),
                     "jobId": str(job_id),
+                    "crs": crs,
                 }],
                 queue=os.getenv("CELERY_IMPORT_QUEUE", "import_jobs"),
             )
@@ -248,6 +252,7 @@ def retry_import_job(job_id: UUID) -> dict:
             "ifcPath": file_path,
             "projectId": str(record["project_id"]),
             "jobId": str(job_id),
+            "crs": get_project_crs(record["project_id"]),
         }],
         queue=os.getenv("CELERY_IMPORT_QUEUE", "import_jobs"),
     )
